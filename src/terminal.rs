@@ -5,7 +5,7 @@ use crossterm::{
     style::{Color, SetForegroundColor, Colors, SetColors, ResetColor},
     ExecutableCommand,
     QueueableCommand,
-    event::{read, Event, KeyEvent},
+    event::{read, Event},
     cursor,
     terminal,
 };
@@ -74,7 +74,7 @@ impl Terminal {
         loop {
             let event = read();
 
-            if let Ok(Event::Key(key)) = event {
+            if let Ok(Event::Key(_)) = event {
                 self.cycle_colors();
             }
 

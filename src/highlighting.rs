@@ -13,9 +13,9 @@ pub enum Type {
     SecondaryKeywords,
 }
 
+#[allow(dead_code)] // Originally this implemented the termion::color::Color Trait, will hopefully find a use soon
 impl Type {
-
-    pub fn to_color(self) -> Color { // Originally this implemented the termion::color::Color Trait
+    pub fn to_color(self) -> Color {
         match self {
             Type::Number => Color::Rgb{r: 220, g: 163, b: 163},
             Type::Match => Color::Rgb{r: 38, g: 139, b: 210},

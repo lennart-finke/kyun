@@ -4,7 +4,6 @@ use crate::Terminal;
 use std::env;
 use std::time::Duration;
 use std::time::Instant;
-use std::fs;
 
 use crossterm::{
     style::{Colors, Color},
@@ -13,10 +12,7 @@ use crossterm::{
 
 const STATUS_FG_COLOR: Color = Color::AnsiValue(219);
 const STATUS_BG_COLOR: Color = Color::AnsiValue(199);
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 const QUIT_TIMES: u8 = 3;
-const MARGIN_X : usize = 5;
-const MARGIN_Y : usize = 5;
 const WELCOME_WIDTH : usize = 41;
 #[derive(PartialEq, Copy, Clone)]
 pub enum SearchDirection {
@@ -367,7 +363,7 @@ impl Editor {
     }
 
     fn move_right(&mut self, i: u8) {
-        for k in 1..i {
+        for _ in 1..i {
             self.move_cursor(KeyCode::Right);
         }
     }

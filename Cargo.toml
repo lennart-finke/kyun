@@ -1,10 +1,10 @@
 [package]
-name = "hecto"
+name = "kyun"
 version = "0.1.0"
-authors = ["Philipp Flenker <hello@philippflenker.com>"]
+authors = ["fi-le <info@fi-le.net>", "Philipp Flenker <hello@philippflenker.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Based on the editor hecto by Phillip Flenker
 
 [dependencies]
 crossterm = "0.22.1"

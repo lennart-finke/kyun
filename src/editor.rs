@@ -4,6 +4,7 @@ use crate::Terminal;
 use std::env;
 use std::time::Duration;
 use std::time::Instant;
+use std::include_bytes;
 
 use crossterm::{
     style::{Colors, Color},
@@ -82,7 +83,9 @@ impl Editor {
             Document::default()
         };
 
-        let welcome = Document::open("src/welcome.txt").unwrap();
+        let welcome_bytes = include_bytes!("welcome.txt");
+        let welcome_string = String::from_utf8(welcome_bytes.to_vec()).unwrap();
+        let welcome = Document::from_string(welcome_string).unwrap();
 
         Self {
             should_quit: false,

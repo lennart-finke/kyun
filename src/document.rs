@@ -28,6 +28,20 @@ impl Document {
             file_type,
         })
     }
+
+    pub fn from_string(string: String) -> Result<Self, std::io::Error> {
+        let mut rows = Vec::new();
+        for value in string.lines() {
+            rows.push(Row::from(value));
+        }
+
+        Ok(Self {
+            rows,
+            file_name: None,
+            dirty: false,
+            file_type: FileType::default(),
+        })
+    }
     pub fn file_type(&self) -> String {
         self.file_type.name()
     }

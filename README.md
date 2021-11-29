@@ -4,8 +4,10 @@
 
 ( *¯ ꒳ ¯*)>　Then I hav a sowution for yu!!!!!!!?!
 
-# キュン | The worst text editor (yet)
-Kyun is a ***low productivity***, ***low fidelity***, ***low customizablity*** text editor that has its focus firm on ***user discomfort*** - specifically made for writing uwu-style cutesy text. It is based on ![hecto](https://github.com/pflenker/hecto-tutorial), a great text editor for learning purposes, by Phillip Flenker.
+# キュン | The worst text editor yet
+[![Made with Pain](https://img.shields.io/badge/Made%20with-Pain-red.svg)](https://shields.io/) 
+
+Kyun is a ***low productivity***, ***low fidelity***, ***low customizablity*** text editor that has its focus firm on ***user discomfort*** - specifically made for writing uwu-style cutesy text. It is based on ![hecto](https://github.com/pflenker/hecto-tutorial), a great text editor for learning purposes, by Phillip Flenker and licensed under ![CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ![Screenshot](https://fi-le.net/images/kyun.gif?raw=true)
 

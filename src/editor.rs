@@ -289,7 +289,12 @@ impl Editor {
 
         else if let Event::Resize(width, height) = event {
             self.terminal.size.width = width;
-            self.terminal.size.height = height - 1;
+            if env::consts::OS == "windows" {
+                self.terminal.size.height = height - 1;
+            }
+            else {
+                self.terminal.size.height = height - 2;
+            }
         }
 
 

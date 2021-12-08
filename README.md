@@ -12,10 +12,14 @@ Kyun is a ***low productivity***, ***low fidelity***, ***low customizablity*** t
 ![Screenshot](https://fi-le.net/images/kyun.gif?raw=true)
 
 ### Featuwes
+
 - Helpful shortcuts to make your writing experience ~~harder~~ easier
 - Beauwtiful colors!　(๑´ㅂ`๑)
+- **Syntax Highlighting for Rust and the ![UwU++ programming language!](https://github.com/Deltaphish/UwUpp)**
 - Unicode Art
 - Written in Rust (I'm so sorry)
+
+![Screenshot](https://fi-le.net/images/screenshot9.png?raw=true)
 
 ### Sup*paw*ted Platforms
 Kyun is Cwoss-Platform, but tested for UNIX (specifically Arch) and Windows only. If you like, pwease try to extend the list!　(´▽｀)／
@@ -23,10 +27,8 @@ Kyun is Cwoss-Platform, but tested for UNIX (specifically Arch) and Windows only
 ## Installation
 ![Screenshot](https://fi-le.net/images/screenshot8.png?raw=true)
 
-The easiest way to twy it out is downloading the binawy rewease. If you want to compiwe yourself:
+The easiest way to twy it out is downloading the ![binawy rewease](https://github.com/file-acomplaint/kyun/releases). If you have cargo, you can simply execute
 
 ```bash
-git clone https://github.com/file-acomplaint/kyun
-cd kyun
-cargo run
+cargo install kyun
 ```

@@ -79,7 +79,6 @@ impl Terminal {
             }
 
             return event
-
         }
     }
 

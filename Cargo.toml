@@ -1,8 +1,14 @@
 [package]
 name = "kyun"
-version = "0.1.0"
+version = "0.2.0"
+description = "The worst text editor in existence, perfect for writing uwu-style cutesy text!"
+repository = "https://github.com/file-acomplaint/kyun"
+homepage = "https://fi-le.net/programming#kyun"
+license = "CC-BY-4.0"
 authors = ["fi-le <info@fi-le.net>", "Philipp Flenker <hello@philippflenker.com>"]
 edition = "2018"
+keywords = ["TUI", "cute", "uwu"]
+categories = ["command-line-utilities", "text-editors", "development-tools"]
 
 # Based on the editor hecto by Phillip Flenker
 

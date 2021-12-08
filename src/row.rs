@@ -2,6 +2,10 @@ use crate::highlighting;
 use crate::HighlightingOptions;
 use crate::SearchDirection;
 use std::cmp;
+use crossterm::{
+    style::SetForegroundColor,
+    style::Color
+};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Default)]
@@ -42,9 +46,8 @@ impl Row {
                     .unwrap_or(&highlighting::Type::None);
                 if highlighting_type != current_highlighting {
                     current_highlighting = highlighting_type;
-                    // let start_highlight =
-                        // format!("{}", termion::color::Fg(highlighting_type.to_color()));
-                    // result.push_str(&start_highlight[..]);
+                    result.push_str(format!("{}", SetForegroundColor(highlighting_type.to_color())).as_str());
+
                 }
                 if c == '\t' {
                     result.push_str(" ");
@@ -53,7 +56,7 @@ impl Row {
                 }
             }
         }
-        // let end_highlight = format!("{}", termion::color::Fg(color::Reset));
+        result.push_str(format!("{}", SetForegroundColor(Color::Reset)).as_str());
         // result.push_str(&end_highlight[..]);
         result
     }
@@ -365,6 +368,33 @@ impl Row {
         }
         false
     }
+
+    fn highlight_asteriscs(
+        &mut self,
+        index: &mut usize,
+        opts: &HighlightingOptions,
+        c: char,
+        chars: &[char],
+    ) -> bool {
+        if opts.asteriscs() && c == '*' {
+            loop {
+                self.highlighting.push(highlighting::Type::Asteriscs);
+                *index += 1;
+                if let Some(next_char) = chars.get(*index) {
+                    if *next_char == '*' {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            self.highlighting.push(highlighting::Type::Asteriscs);
+            *index += 1;
+            return true;
+        }
+        false
+    }
+ 
     fn highlight_number(
         &mut self,
         index: &mut usize,
@@ -437,6 +467,7 @@ impl Row {
                 || self.highlight_primary_keywords(&mut index, &opts, &chars)
                 || self.highlight_secondary_keywords(&mut index, &opts, &chars)
                 || self.highlight_string(&mut index, opts, *c, &chars)
+                || self.highlight_asteriscs(&mut index, opts, *c, &chars)
                 || self.highlight_number(&mut index, opts, *c, &chars)
             {
                 continue;

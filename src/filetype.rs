@@ -7,6 +7,7 @@ pub struct FileType {
 pub struct HighlightingOptions {
     numbers: bool,
     strings: bool,
+    asteriscs: bool,
     characters: bool,
     comments: bool,
     multiline_comments: bool,
@@ -37,6 +38,7 @@ impl FileType {
                 hl_opts: HighlightingOptions {
                     numbers: true,
                     strings: true,
+                    asteriscs: false,
                     characters: true,
                     comments: true,
                     multiline_comments: true,
@@ -112,6 +114,43 @@ impl FileType {
                 },
             };
         }
+
+        else if file_name.ends_with(".uwu") {
+            return Self {
+                name: String::from("UwU++"),
+                hl_opts: HighlightingOptions {
+                    numbers: true,
+                    strings: true,
+                    asteriscs: true,
+                    characters: true,
+                    comments: false,
+                    multiline_comments: false,
+                    primary_keywords: vec![
+                        "UwU".to_string(),
+                        "OwO".to_string(),
+                        "stawp".to_string(),
+                        "nuzzles".to_string(),
+                        "nyaa".to_string(),
+                        "wetuwn".to_string(),
+                        "UwU?".to_string(),
+                        "".to_string(),
+                        "for".to_string(),
+                        "if".to_string(),
+
+                    ],
+                    secondary_keywords: vec![
+                        "iws".to_string(),
+                        "gweatew".to_string(),
+                        "pwus".to_string(),
+                        "eqwall twoo".to_string(),
+                        "minwus".to_string(),
+                        "diwide".to_string(),
+                        "wess twan".to_string(),
+                        "twimes".to_string(),
+                    ],
+                },
+            };
+        }
         Self::default()
     }
 }
@@ -122,6 +161,9 @@ impl HighlightingOptions {
     }
     pub fn strings(&self) -> bool {
         self.strings
+    }
+    pub fn asteriscs(&self) -> bool {
+        self.asteriscs
     }
     pub fn characters(&self) -> bool {
         self.characters

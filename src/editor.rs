@@ -11,8 +11,8 @@ use crossterm::{
     event::{Event, KeyCode, KeyModifiers, KeyEvent, read},
 };
 
-const STATUS_FG_COLOR: Color = Color::AnsiValue(219);
-const STATUS_BG_COLOR: Color = Color::AnsiValue(199);
+const STATUS_FG_COLOR: Color = Color::Rgb{r: 252, g: 196, b: 228};
+const STATUS_BG_COLOR: Color = Color::Rgb{r: 153, g: 1, b: 87};
 const QUIT_TIMES: u8 = 3;
 const WELCOME_WIDTH : usize = 41;
 #[derive(PartialEq, Copy, Clone)]
@@ -199,6 +199,18 @@ impl Editor {
                 }
                 (KeyModifiers::CONTROL, KeyCode::Char('s')) => self.save(),
                 (KeyModifiers::CONTROL, KeyCode::Char('f')) => self.search(),
+                (KeyModifiers::CONTROL, KeyCode::Char('l')) => {
+                    self.document.insert(&self.cursor_position, 'l');
+                    self.move_cursor(KeyCode::Right);
+                },
+                (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
+                    self.document.insert(&self.cursor_position, 'r');
+                    self.move_cursor(KeyCode::Right);
+                },
+                (KeyModifiers::CONTROL, KeyCode::Char('*')) => {
+                    self.document.insert(&self.cursor_position, '*');
+                    self.move_cursor(KeyCode::Right);
+                },
                 (_, KeyCode::Enter) => {
                     self.document.insert(&self.cursor_position, '\n');
                     self.move_cursor(KeyCode::Right);
@@ -277,7 +289,7 @@ impl Editor {
 
         else if let Event::Resize(width, height) = event {
             self.terminal.size.width = width;
-            self.terminal.size.height = height - 2;
+            self.terminal.size.height = height - 1;
         }
 
 
@@ -430,7 +442,7 @@ impl Editor {
             ""
         };
 
-        let mut file_name = "[uwu]".to_string();
+        let mut file_name = "[uwunamed]".to_string();
         if let Some(name) = &self.document.file_name {
             file_name = name.clone();
             file_name.truncate(20);
@@ -506,5 +518,5 @@ impl Editor {
 
 fn die(e: std::io::Error) {
     Terminal::clear_screen();
-    panic!(e);
+    panic!("{}", e);
 }

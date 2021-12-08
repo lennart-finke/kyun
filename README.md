@@ -19,7 +19,7 @@ Kyun is a ***low productivity***, ***low fidelity***, ***low customizablity*** t
 - Unicode Art
 - Written in Rust (I'm so sorry)
 
-![Screenshot](https://fi-le.net/images/screenshot9.png?raw=true)
+![Screenshot](https://fi-le.net/images/screenshot10.png?raw=true)
 
 ### Sup*paw*ted Platforms
 Kyun is Cwoss-Platform, but tested for UNIX (specifically Arch) and Windows only. If you like, pwease try to extend the list!　(´▽｀)／

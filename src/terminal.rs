@@ -1,101 +1,120 @@
-use crate::Position;
 use std::io::{stdout, Write};
+use crossterm::{execute, style::{
+    Color,
+    Colors,
+}, terminal, event::{
+    Event,
+}, queue};
+use crate::handle_error;
 
-use crossterm::{
-    style::{Color, SetForegroundColor, Colors, SetColors, ResetColor},
-    ExecutableCommand,
-    QueueableCommand,
-    event::{read, Event},
-    cursor,
-    terminal,
-};
-
-pub struct Size {
-    pub width: u16,
-    pub height: u16,
-}
 pub struct Terminal {
-    pub size: Size,
-    color: usize,
+    width: usize,
+    height: usize,
+    color: u8,
 }
 
 impl Terminal {
-    pub fn default() -> Result<Self, std::io::Error> {
-        let size = terminal::size().unwrap();
-        terminal::enable_raw_mode().ok();
-
-        Ok(Self {
-            size: Size {
-                width: size.0,
-                height: size.1.saturating_sub(2),
-            },
-            color: 190
-        })
-    }
-    pub fn size(&self) -> &Size {
-        &self.size
-    }
-    pub fn quit() {
-        Terminal::reset_colors();
-        stdout().execute(terminal::Clear(terminal::ClearType::All)).ok();
-        crossterm::terminal::disable_raw_mode().ok();
-
-        println!("\n\t            ^   ^    \n\tBye bye ヾ(｡>﹏<｡)ﾉ\r\n");
-
-
-    }
-    pub fn clear_screen() {
-        stdout().execute(terminal::Clear(terminal::ClearType::All)).ok();
-    }
-
-    pub fn cycle_colors(&mut self) {
-        self.color += 1;
-
-        if self.color > 230 {
-            self.color = 190;
-        }
-
-        stdout().execute(SetForegroundColor(Color::AnsiValue(self.color as u8))).ok();
-    }
-
-    pub fn cursor_position(position: &Position) {
-        let Position { mut x, mut y } = position;
-        x = x.saturating_add(1);
-        y = y.saturating_add(1);
-        let x = x as u16;
-        let y = y as u16;
-
-        stdout().queue(cursor::MoveTo(x - 1, y - 1)).ok();
-    }
-    pub fn flush() -> Result<(), std::io::Error> {
-        stdout().flush()
-    }
+    // 读取文本
     pub fn read(&mut self) -> Result<Event, std::io::Error> {
         loop {
-            let event = read();
-
-            if let Ok(Event::Key(_)) = event {
-                self.cycle_colors();
+            let event = crossterm::event::read();
+            // 如果是键盘输入事件，改变文本的颜色
+            if let Event::Key(_) = event {
+                self.set_color();
             }
-
-            return event
+            return event;
         }
     }
 
+    // 获取终端大小
+    pub fn get_size(&self) -> (usize, usize) {
+        (self.width, self.height)
+    }
 
-    pub fn cursor_hide() {
-        stdout().execute(cursor::DisableBlinking).ok();
+    // 设置颜色
+    pub fn set_color(&mut self) {
+        self.color += 1;
+        if self.color > 231 {
+            self.color = 20;
+        }
+        Self::set_foreground_color(Color::AnsiValue(self.color))
     }
-    pub fn cursor_show() {
-        stdout().execute(cursor::EnableBlinking).ok();
+}
+
+
+impl Terminal {
+    //构造函数
+    pub fn new() -> Result<Self, std::io::Error> {
+        let (current_width, current_height) = terminal::size().unwrap();
+        handle_error!(terminal::enable_raw_mode());
+
+        Ok(Self{
+            width: current_width as usize,
+            height: current_height as usize,
+            color: 20,
+        })
     }
-    pub fn clear_current_line() {
-        stdout().execute(terminal::Clear(terminal::ClearType::CurrentLine)).ok();
+
+    // 设置终端全部颜色
+    pub fn terminal_color(colors: Colors) {
+        handle_error!(execute!(stdout(), crossterm::style::SetColors(colors)));
     }
-    pub fn set_colors(colors: Colors) {
-        stdout().execute(SetColors(colors)).ok();
+
+    //设置终端前景色：字体颜色
+    pub fn set_foreground_color(color: Color) {
+        handle_error!(execute!(stdout(), crossterm::style::SetForegroundColor(color)));
     }
-    pub fn reset_colors() {
-        stdout().execute(ResetColor).ok();
+
+    // 刷新终端缓冲区
+    pub fn flush() ->Result<(), std::io::Error> {
+        stdout().flush()
+    }
+
+    // 隐藏终端光标
+    pub fn hide_cursor() {
+        handle_error!(execute!(stdout(), crossterm::cursor::Hide));
+    }
+
+    // 显示终端光标
+    pub fn show_cursor() {
+        handle_error!(execute!(stdout(), crossterm::cursor::Show));
+    }
+
+    // 清除终端行
+    pub fn clear_line() {
+        handle_error!(execute!(stdout(),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::CurrentLine)));
+    }
+
+    // 清除终端全部
+    pub fn clear_terminal() {
+        handle_error!(
+            execute!(
+                stdout(),
+                crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+            )
+        );
+    }
+
+    //重置终端颜色
+    pub fn reset_color() {
+       handle_error!(execute!(stdout(), crossterm::style::ResetColor));
+    }
+
+    // 重置终端的模式
+    pub fn reset_terminal_mode() {
+        handle_error!(execute!(stdout(), crossterm::terminal::LeaveAlternateScreen));
+    }
+
+    // 退出终端
+    pub fn exit_terminal() {
+        Self::reset_terminal_mode();
+        Self::reset_color();
+        Self::clear_terminal();
+    }
+
+    // 移动光标位置
+    pub fn move_cursor(x: u16, y: u16) {
+        handle_error!(execute!(stdout(), crossterm::cursor::MoveTo(x, y)))
     }
 }

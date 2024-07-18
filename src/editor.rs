@@ -1,500 +1,251 @@
-use crate::Document;
-use crate::Row;
-use crate::Terminal;
-use std::env;
-use std::time::Duration;
-use std::time::Instant;
-use std::include_bytes;
-
-use crossterm::{
-    style::{Colors, Color},
-    event::{Event, KeyCode, KeyModifiers, KeyEvent, read},
-};
-
-const STATUS_FG_COLOR: Color = Color::Rgb{r: 252, g: 196, b: 228};
-const STATUS_BG_COLOR: Color = Color::Rgb{r: 153, g: 1, b: 87};
-const QUIT_TIMES: u8 = 3;
-const WELCOME_WIDTH : usize = 41;
-#[derive(PartialEq, Copy, Clone)]
-pub enum SearchDirection {
+use std::fmt::format;
+use std::thread::current;
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::Event::Key;
+use crate::bottom::BottomText;
+use crate::error::print_error;
+use crate::terminal::Terminal;
+// 进行单词匹配查找时查询的方向
+enum FindDirection {
     Forward,
     Backward,
 }
 
-#[derive(Default, Clone)]
-pub struct Position {
-    pub x: usize,
-    pub y: usize,
-}
-
-struct StatusMessage {
-    text: String,
-    time: Instant,
-}
-impl StatusMessage {
-    fn from(message: String) -> Self {
-        Self {
-            time: Instant::now(),
-            text: message,
-        }
-    }
-}
+// 默认位置
+const DEFAULT_POSITION: (usize, usize) = (0, 0);
 
 pub struct Editor {
-    should_quit: bool,
+    // 终端
     terminal: Terminal,
-    cursor_position: Position,
-    offset: Position,
+    // 光标位置
+    cursor_position: (usize, usize),
+    // 文本存储
     document: Document,
-    welcome_message: Document,
-    status_message: StatusMessage,
-    quit_times: u8,
-    highlighted_word: Option<String>,
+    // 底部状态栏
+    bottom_text: BottomText,
+    // 高亮设置
+    highlight: Option<String>,
+    // 偏移量
+    offset: (usize, usize),
+    // 是否退出
+    quit: bool,
+    // 记录退出次数进行强制退出
+    force_quit: usize,
 }
 
+// 成员函数
 impl Editor {
+    // 程序运行循环函数，持续调用屏幕刷新和键盘输入处理函数
+    // 当发生错误或是要退出时，退出循环
     pub fn run(&mut self) {
         loop {
-            if let Err(error) = self.refresh_screen() {
-                die(error);
+            if let Err(e) = self.refresh_screen() {
+                print_error(&e)
             }
-            if self.should_quit {
+
+            if self.quit {
                 break;
             }
-            if let Err(error) = self.process_keypress() {
-                die(error);
+
+            if let Err(e) = self.handle_events() {
+                print_error(&e);
             }
         }
     }
-    pub fn default() -> Self {
-        let args: Vec<String> = env::args().collect();
-        let mut initial_status =
-            String::from("HEWP: Ctrl-F = find | Ctrl-S = save | Esc = qwit");
 
-        let document = if let Some(file_name) = args.get(1) {
-            let doc = Document::open(file_name);
-            if let Ok(doc) = doc {
-                doc
-            } else {
-                initial_status = format!("EWWOR!!! Could not open fiwe??! ＼＼(๑`^´๑)۶/怒／／ {}", file_name);
-                Document::default()
+    // 处理键盘输入
+    // 需要处理多种捕捉到的事件
+    // Key: 键盘按键事件，这包括普通字符键、功能键、方向键等。
+    // Mouse: 鼠标事件，包括鼠标点击、移动和滚轮滚动。
+    // Resize: 终端窗口大小改变事件。
+    // Paste: 剪切板输入事件。
+    fn handle_events(&mut self) -> Result<(), std::io::Error> {
+        // 是否进行额外的错误处理？
+        let event = self.terminal.read()?;
+
+        match event {
+            Key(key_input) => {
+                self.handle_key_event(key_input);
+            },
+            Event::Mouse(mouse_input) => {
+                todo!("处理鼠标输入的事件")
+            },
+            Event::Resize(_, _) => {
+                todo!("处理窗口大小改变的事件")
+            },
+            Event::Paste(paste_input) => {
+                todo!("处理粘贴板输入的事件")
+            },
+            _ => {
+                todo!("处理其他事件")
             }
-        } else {
-            Document::default()
         };
-
-        let welcome_bytes = include_bytes!("welcome.txt");
-        let welcome_string = String::from_utf8(welcome_bytes.to_vec()).unwrap();
-        let welcome = Document::from_string(welcome_string).unwrap();
-
-        Self {
-            should_quit: false,
-            terminal: Terminal::default().expect("Failed to initialize terminal"),
-            document,
-            cursor_position: Position::default(),
-            offset: Position::default(),
-            status_message: StatusMessage::from(initial_status),
-            welcome_message: welcome,
-            quit_times: QUIT_TIMES,
-            highlighted_word: None,
-        }
-    }
-
-    fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
-        Terminal::cursor_hide();
-
-        Terminal::cursor_position(&Position::default());
-        if self.should_quit {
-            Terminal::quit();
-        } else {
-            self.document.highlight(
-                &self.highlighted_word,
-                Some(
-                    self.offset
-                        .y
-                        .saturating_add(self.terminal.size().height as usize),
-                ),
-            );
-            self.draw_rows();
-            self.draw_status_bar();
-            self.draw_message_bar();
-
-            Terminal::cursor_position(&Position {
-                x: self.cursor_position.x.saturating_sub(self.offset.x),
-                y: self.cursor_position.y.saturating_sub(self.offset.y),
-            });
-        }
-        Terminal::cursor_show();
-        Terminal::flush()
-    }
-    fn save(&mut self) {
-        if self.document.file_name.is_none() {
-            let new_name = self.prompt("Sawe as: ", |_, _, _| {}).unwrap_or(None);
-            if new_name.is_none() {
-                self.status_message = StatusMessage::from("Sawe aborted ; w ;.".to_string());
-                return;
-            }
-            self.document.file_name = new_name;
-        }
-
-        if self.document.save().is_ok() {
-            self.status_message = StatusMessage::from("Fiwe sawed successfuwwy. (- w -)ゞ".to_string());
-        } else {
-            self.status_message = StatusMessage::from("Error writing file! OWO".to_string());
-        }
-    }
-    fn search(&mut self) {
-        let old_position = self.cursor_position.clone();
-        let mut direction = SearchDirection::Forward;
-        let query = self
-            .prompt(
-                "Searching owo (ESC to cancel, Awwows to nawigate): ",
-                |editor, key, query| {
-                    let mut moved = false;
-                    match key.code {
-                        KeyCode::Right | KeyCode::Down => {
-                            direction = SearchDirection::Forward;
-                            editor.move_cursor(KeyCode::Right);
-                            moved = true;
-                        }
-                        KeyCode::Left | KeyCode::Up => direction = SearchDirection::Backward,
-                        _ => direction = SearchDirection::Forward,
-                    }
-                    if let Some(position) =
-                        editor
-                            .document
-                            .find(&query, &editor.cursor_position, direction)
-                    {
-                        editor.cursor_position = position;
-                        editor.scroll();
-                    } else if moved {
-                        editor.move_cursor(KeyCode::Left);
-                    }
-                    editor.highlighted_word = Some(query.to_string());
-                },
-            )
-            .unwrap_or(None);
-
-        if query.is_none() {
-            self.cursor_position = old_position;
-            self.scroll();
-        }
-        self.highlighted_word = None;
-    }
-    fn process_keypress(&mut self) -> Result<(), std::io::Error> {
-        let event = Terminal::read(&mut self.terminal)?;
-
-        if let Event::Key(pressed_key) = event {
-            match (pressed_key.modifiers, pressed_key.code) {
-                (KeyModifiers::CONTROL, KeyCode::Char('q')) | (_, KeyCode::Esc) => {
-                    if self.quit_times > 0 && self.document.is_dirty() {
-                        self.status_message = StatusMessage::from(format!(
-                            "OwO! Fiwe has unsawed changes!!! Pwess Esc {} mowe times to qwit1!!!",
-                            self.quit_times
-                        ));
-                        self.quit_times -= 1;
-                        return Ok(());
-                    }
-                    self.should_quit = true
-                }
-                (KeyModifiers::CONTROL, KeyCode::Char('s')) => self.save(),
-                (KeyModifiers::CONTROL, KeyCode::Char('f')) => self.search(),
-                (KeyModifiers::CONTROL, KeyCode::Char('l')) => {
-                    self.document.insert(&self.cursor_position, 'l');
-                    self.move_cursor(KeyCode::Right);
-                },
-                (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
-                    self.document.insert(&self.cursor_position, 'r');
-                    self.move_cursor(KeyCode::Right);
-                },
-                (KeyModifiers::CONTROL, KeyCode::Char('*')) => {
-                    self.document.insert(&self.cursor_position, '*');
-                    self.move_cursor(KeyCode::Right);
-                },
-                (_, KeyCode::Enter) => {
-                    self.document.insert(&self.cursor_position, '\n');
-                    self.move_cursor(KeyCode::Right);
-                },
-                (_, KeyCode::Char(mut c)) => {
-                    match c {
-                        'l' | 'r' => {
-                            c = 'w';
-                        },
-
-                        'L' | 'R' => {
-                            c = 'W';
-                        },
-                        '*' => {
-                            self.document.insert(&self.cursor_position, '*');
-                            self.document.insert(&self.cursor_position, ' ');
-                            self.document.insert(&self.cursor_position, 's');
-                            self.document.insert(&self.cursor_position, 'e');
-                            self.document.insert(&self.cursor_position, 'c');
-                            self.document.insert(&self.cursor_position, 'i');
-                            self.document.insert(&self.cursor_position, 't');
-                            self.document.insert(&self.cursor_position, 'o');
-                            self.document.insert(&self.cursor_position, 'n');
-                            self.document.insert(&self.cursor_position, '*');
-
-                            self.move_right(10);
-                            return Ok(());
-                        },
-
-                        'U' => {
-                            self.document.insert(&self.cursor_position, 'U');
-                            self.document.insert(&self.cursor_position, 'w');
-                            self.document.insert(&self.cursor_position, 'U');
-
-                            self.move_right(4);
-                            return Ok(());
-                        },
-
-                        'O' => {
-                            self.document.insert(&self.cursor_position, 'O');
-                            self.document.insert(&self.cursor_position, 'w');
-                            self.document.insert(&self.cursor_position, 'O');
-
-                            self.move_right(4);
-                            return Ok(());
-                        }
-                        _ => {}
-                    }
-
-                    self.document.insert(&self.cursor_position, c);
-                    self.move_cursor(KeyCode::Right);
-                }
-                (_, KeyCode::Delete) => self.document.delete(&self.cursor_position),
-                (_, KeyCode::Backspace) => {
-                    if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
-                        self.move_cursor(KeyCode::Left.into());
-                        self.document.delete(&self.cursor_position);
-                    }
-                },
-                (_, KeyCode::Up)
-                | (_, KeyCode::Down)
-                | (_, KeyCode::Left)
-                | (_, KeyCode::Right)
-                | (_, KeyCode::PageUp)
-                | (_, KeyCode::PageDown)
-                | (_, KeyCode::End)
-                | (_, KeyCode::Home) => self.move_cursor(pressed_key.code),
-                _ => (),
-            }
-            self.scroll();
-            if self.quit_times < QUIT_TIMES {
-                self.quit_times = QUIT_TIMES;
-                self.status_message = StatusMessage::from(String::new());
-            }
-        }
-
-        else if let Event::Resize(width, height) = event {
-            self.terminal.size.width = width;
-            if env::consts::OS == "windows" {
-                self.terminal.size.height = height - 1;
-            }
-            else {
-                self.terminal.size.height = height - 2;
-            }
-        }
-
-
         Ok(())
     }
-    fn scroll(&mut self) {
-        let Position { x, y } = self.cursor_position;
-        let width = self.terminal.size().width as usize;
-        let height = self.terminal.size().height as usize;
-        let mut offset = &mut self.offset;
-        if y < offset.y {
-            offset.y = y;
-        } else if y >= offset.y.saturating_add(height) {
-            offset.y = y.saturating_sub(height).saturating_add(1);
-        }
-        if x < offset.x {
-            offset.x = x;
-        } else if x >= offset.x.saturating_add(width) {
-            offset.x = x.saturating_sub(width).saturating_add(1);
-        }
-    }
-    fn move_cursor(&mut self, key: KeyCode) {
-        let terminal_height = self.terminal.size().height as usize;
-        let Position { mut y, mut x } = self.cursor_position;
-        let height = self.document.len();
-        let mut width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
-        match key {
-            KeyCode::Up => y = y.saturating_sub(1),
-            KeyCode::Down => {
-                if y < height {
-                    y = y.saturating_add(1);
-                }
-            }
-            KeyCode::Left => {
-                if x > 0 {
-                    x -= 1;
-                } else if y > 0 {
-                    y -= 1;
-                    if let Some(row) = self.document.row(y) {
-                        x = row.len();
-                    } else {
-                        x = 0;
+
+    // 处理键盘输入的事件
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match (key_event.modifiers, key_event.code) {
+            // 处理控制键的事件
+            (KeyModifiers::CONTROL, KeyCode::Char(c)) => {
+                match c {
+                    's' => {
+
+                    },
+                    'q' => {
+
                     }
                 }
+            },
+            // 处理换行键的事件
+            (_, KeyCode::Enter) => {
+                todo!("处理换行键的事件");
             }
+            // 处理退格键的事件
+            (_, KeyCode::Backspace) => {
+                todo!("处理删除键的事件");
+            }
+            // 处理删除键事件
+            (_, KeyCode::Delete) => {
+
+            }
+            // 处理方向键
+            (_, KeyCode::Up) | (_, KeyCode::Down) | (_, KeyCode::Left) | (_, KeyCode::Right) => {
+                todo!("处理方向键的事件");
+            },
+            (_, KeyCode::Char(c)) => {
+                self.document.insert(&self.cursor_position, c);
+                self.move_cursor_position(KeyCode::Right);
+            }
+        }
+    }
+    // 处理鼠标输入的事件
+    fn handle_mouse_event(&mut self, mouse_event: crossterm::event::Event::Mouse) {}
+    // 处理窗口大小改变的事件
+    fn handle_resize_event(&mut self, resize_event: crossterm::event::Event::Resize) {}
+    //处理剪切板输入的事件
+    fn handle_paste_event(&mut self, paste_event: crossterm::event::Event::Paste) {}
+
+    // 移动光标位置
+    fn move_cursor_position(&mut self, key_code: KeyCode) {
+        let terminal_height = self.terminal.get_size().1;
+        let (mut current_x, mut current_y) = self.cursor_position;
+        todo!("获取文件的长度和行的长度");
+
+        match key_code {
+            KeyCode::Up => current_y = current_y.saturating_sub(1),
+            KeyCode::Down => {
+
+            },
+            KeyCode::left => {
+
+            },
             KeyCode::Right => {
-                if x < width {
-                    x += 1;
-                } else if y < height {
-                    y += 1;
-                    x = 0;
-                }
-            }
-            KeyCode::PageUp => {
-                y = if y > terminal_height {
-                    y.saturating_sub(terminal_height)
-                } else {
-                    0
-                }
-            }
-            KeyCode::PageDown => {
-                y = if y.saturating_add(terminal_height) < height {
-                    y.saturating_add(terminal_height)
-                } else {
-                    height
-                }
-            }
-            KeyCode::Home => x = 0,
-            KeyCode::End => x = width,
+
+            },
             _ => (),
         }
-        width = if let Some(row) = self.document.row(y) {
-            row.len()
+    }
+
+    // 刷新屏幕显示输入
+    pub fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
+        Terminal::hide_cursor();
+        // 将光标移动到默认的位置
+        Terminal::move_cursor(DEFAULT_POSITION.0 as u16, DEFAULT_POSITION.1 as u16);
+        // 如果字段选择退出，则退出
+        if self.quit {
+            Terminal::exit_terminal();
         } else {
-            0
-        };
-        if x > width {
-            x = width;
+            todo!("文本的高亮接口接入");
+            todo!("文本显示接口、状态栏显示、消息显示");
+            todo!("光标位置移动");
         }
-
-        self.cursor_position = Position { x, y }
+        Terminal::show_cursor();
+        Terminal::flush()
     }
 
-    fn move_right(&mut self, i: u8) {
-        for _ in 1..i {
-            self.move_cursor(KeyCode::Right);
-        }
+    //保存文件
+    fn save(&mut self) {
+        todo!("document中没有文件名则提示输入文件名");
+        todo!("保存文件")
     }
 
-    fn draw_centered(&self, r: &Row) {
-        let mut width = self.terminal.size().width as usize;
-        let start = self.offset.x;
-        let end = self.offset.x.saturating_add(width);
-        let mut row = r.render(start, end);
-
-        let padding = width.saturating_sub(WELCOME_WIDTH) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        row = format!("{}{}", spaces, row);
-
-        if row.len() > width  {
-            while width > 0 {
-                if row.is_char_boundary(width) {
-                    row.truncate(width);
-
-                    break;
+    // 查询指定的单词
+    fn find(&mut self) {
+        let old_cursor_position = self.cursor_position.clone();
+        let mut direction = FindDirection::Forward;
+        let find_text = self.status_message(
+            "Find test(use ESC to cancel):",
+            |editor, key, query_text| {
+                let mut moved = false;
+                match key.code {
+                    KeyCode::Right | KeyCode::Down => {
+                        direction = FindDirection::Forward;
+                        editor.move_cursor_position(KeyCode::Right);
+                        moved = true;
+                    }
+                    KeyCode::Left | KeyCode::Up => direction = FindDirection::Backward,
+                    _ => direction = FindDirection::Forward,
                 }
-                width -= 1;
-            }
-        }
 
-        println!("{}\r", row);
-    }
-    pub fn draw_row(&self, row: &Row) {
-        let width = self.terminal.size().width as usize;
-        let start = self.offset.x;
-        let end = self.offset.x.saturating_add(width);
-        let row = row.render(start, end);
-        println!("{}\r", row)
-    }
-    fn draw_rows(&self) {
-        let height = self.terminal.size().height;
-
-        for terminal_row in 0..height {
-            Terminal::clear_current_line();
-            if let Some(row) = self.document.row(self.offset.y.saturating_add(terminal_row as usize)) {
-                self.draw_row(row);
-            }
-
-            else if self.document.is_empty() {
-                if let Some(row) = self.welcome_message
-                    .row(self.offset.y.saturating_add(terminal_row as usize))
-                {
-                    self.draw_centered(row);
+                if let Some(position) = editor.document.find(&query_text, &editor.cursor_position, direction) {
+                    editor.cursor_position = position;
+                    editor.scroll();
+                } else if moved {
+                    editor.move_cursor_position(KeyCode::Left);
                 }
-            } else {
-                println!("\r");
-            }
-        }
-    }
-    fn draw_status_bar(&self) {
-        let mut status;
-        let width = self.terminal.size().width as usize;
-        let modified_indicator = if self.document.is_dirty() {
-            " (modified)"
-        } else {
-            ""
-        };
-
-        let mut file_name = "[uwunamed]".to_string();
-        if let Some(name) = &self.document.file_name {
-            file_name = name.clone();
-            file_name.truncate(20);
-        }
-        status = format!(
-            "{} - {} lines{}",
-            file_name,
-            self.document.len(),
-            modified_indicator
+                editor.highlight = Some(query_text.to_string());
+            },
         );
 
-        let line_indicator = format!(
-            "{} | {}/{}",
-            self.document.file_type(),
-            self.cursor_position.y.saturating_add(1),
-            self.document.len()
-        );
-        let len = status.len() + line_indicator.len();
-        status.push_str(&" ".repeat(width.saturating_sub(len)));
-        status = format!("{}{}", status, line_indicator);
-        status.truncate(width);
-
-        Terminal::set_colors(Colors::new(STATUS_BG_COLOR, STATUS_FG_COLOR));
-
-        println!("{}\r", status);
-        Terminal::reset_colors();
+        if find_text.unwrap_or(None).is_none() {
+            self.cursor_position = old_cursor_position;
+            self.scroll();
+        }
+        self.highlight = None;
     }
-    fn draw_message_bar(&self) {
-        Terminal::clear_current_line();
-        let message = &self.status_message;
-        if Instant::now() - message.time < Duration::new(5, 0) {
-            let mut text = message.text.clone();
-            text.truncate(self.terminal.size().width as usize);
-            print!("{}", text);
+
+    // 确保光标的可见性区域
+    fn scroll(&mut self) {
+        todo!("确保光标的可见性区域");
+    }
+
+    // 重新计算光标位置
+    fn recalculate_cursor_position(&mut self, key_code: KeyCode) {
+        todo!("重新计算光标位置");
+        match key_code {
+            KeyCode::Up => {
+                todo!("向上移动光标");
+            }
+            KeyCode::Down => {
+                todo!("向下移动光标");
+            }
+            KeyCode::Left => {
+                todo!("向左移动光标");
+            }
+            KeyCode::Right => {
+                todo!("向右移动光标");
+            }
+            _ => {
+                todo!("其他操作");
+            }
         }
     }
-    fn prompt<C>(&mut self, prompt: &str, mut callback: C) -> Result<Option<String>, std::io::Error>
-    where
-        C: FnMut(&mut Self, KeyEvent, &String),
+
+    // 用于在底部显示多种不同的提示信息
+    fn status_message<Func> (&mut self, message: &str, callback: Func)
+        -> Result<Option<String>, std::io::Error>
+        where Func: FnMut(&mut Self, crossterm::event::KeyEvent, &String)
     {
+        // result 存储用于底部控制栏输入的字符
         let mut result = String::new();
-        loop {
-            self.status_message = StatusMessage::from(format!("{}{}", prompt, result));
+        loop{
+            self.bottom_text = BottomText::from(format!("{}{}", message, result));
             self.refresh_screen()?;
-            let event = read().unwrap();
+            // 读取键盘输入
+            let event = self.terminal.read()?;
 
-            if let Event::Key(key) = event {
+            if let Key(key) = event {
                 match key.code {
                     KeyCode::Backspace => result.truncate(result.len().saturating_sub(1)),
                     KeyCode::Enter => break,
@@ -511,17 +262,56 @@ impl Editor {
                 }
                 callback(self, key, &result);
             }
-
         }
-        self.status_message = StatusMessage::from(String::new());
+        self.bottom_text = BottomText::from("".to_string());
         if result.is_empty() {
             return Ok(None);
         }
         Ok(Some(result))
     }
+
+    // 将指定行文本绘制到终端
+    // 如果打开的文件为空，则不用显示信息
+    // 否则显示文本信息
+    fn draw_lines(&mut self) {
+        let terminal_height = self.terminal.get_size().1;
+        for line_number in 0..terminal_height {
+            Terminal::clear_line();
+            todo!("根据文本的行号，显示文本信息")
+        }
+    }
+
+    // 辅助显示函数
+    fn show_help(self, line_text: String) {
+        let width = self.terminal.get_size().0;
+        let start = self.offset.0;
+        let end = self.offset.0.saturating_add(width);
+        todo!("显示行文本")
+    }
 }
 
-fn die(e: std::io::Error) {
-    Terminal::clear_screen();
-    panic!("{}", e);
+// 方法
+impl Editor {
+    // 构造函数
+    pub fn new() -> Self {
+        // 获取需要打开的文件
+        let args = std::env::args().collect::<Vec<_>>();
+        let document = if let Some(file_name) = args.get(1) {
+            todo!("用打开的文件创建一个text字段");
+        } else {
+            todo!("创建一个新的");
+        };
+        todo!("调用实现的document类");
+
+        Self {
+            terminal: Terminal::new().expect("Failed to create terminal"),
+            cursor_position: (0, 0),
+            document: document,
+            bottom_text: BottomText::from("Hello World".to_string()),
+            highlight: None,
+            offset: DEFAULT_POSITION,
+            quit: false,
+            force_quit: 0,
+        }
+    }
 }

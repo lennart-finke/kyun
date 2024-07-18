@@ -1,7 +1,7 @@
 use crate::terminal::Terminal;
 
 #[macro_export]
-pub macro_rules! handle_error {
+macro_rules! handle_error {
     ($expr:expr) => {
         match $expr {
             Ok(_) => {},

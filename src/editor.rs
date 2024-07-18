@@ -1,12 +1,17 @@
-use std::fmt::format;
-use std::thread::current;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::event::Event::Key;
-use crate::bottom::BottomText;
+use crossterm::{
+    style::{Colors, Color},
+    event::{KeyCode, KeyModifiers, KeyEvent, read},
+};
+
+use crossterm::event::Event;
+
+use crate::{bottom::BottomText, Position};
 use crate::error::print_error;
 use crate::terminal::Terminal;
+use crate::doc::Doc;
 // 进行单词匹配查找时查询的方向
-enum FindDirection {
+#[derive(PartialEq, Copy, Clone)]
+pub enum FindDirection {
     Forward,
     Backward,
 }
@@ -18,9 +23,9 @@ pub struct Editor {
     // 终端
     terminal: Terminal,
     // 光标位置
-    cursor_position: (usize, usize),
+    cursor_position: Position,
     // 文本存储
-    document: Document,
+    document: Doc,
     // 底部状态栏
     bottom_text: BottomText,
     // 高亮设置
@@ -64,7 +69,7 @@ impl Editor {
         let event = self.terminal.read()?;
 
         match event {
-            Key(key_input) => {
+            Event::Key(key_input) => {
                 self.handle_key_event(key_input);
             },
             Event::Mouse(mouse_input) => {
@@ -119,17 +124,17 @@ impl Editor {
             }
         }
     }
-    // 处理鼠标输入的事件
-    fn handle_mouse_event(&mut self, mouse_event: crossterm::event::Event::Mouse) {}
-    // 处理窗口大小改变的事件
-    fn handle_resize_event(&mut self, resize_event: crossterm::event::Event::Resize) {}
-    //处理剪切板输入的事件
-    fn handle_paste_event(&mut self, paste_event: crossterm::event::Event::Paste) {}
+    // // 处理鼠标输入的事件
+    // fn handle_mouse_event(&mut self, mouse_event: crossterm::event::Event) {}
+    // // 处理窗口大小改变的事件
+    // fn handle_resize_event(&mut self, resize_event: crossterm::event::Event::Resize) {}
+    // //处理剪切板输入的事件
+    // fn handle_paste_event(&mut self, paste_event: crossterm::event::Event::Paste) {}
 
     // 移动光标位置
     fn move_cursor_position(&mut self, key_code: KeyCode) {
         let terminal_height = self.terminal.get_size().1;
-        let (mut current_x, mut current_y) = self.cursor_position;
+        let (mut current_x, mut current_y) = (self.cursor_position.x,self.cursor_position.y);
         todo!("获取文件的长度和行的长度");
 
         match key_code {
@@ -245,7 +250,7 @@ impl Editor {
             // 读取键盘输入
             let event = self.terminal.read()?;
 
-            if let Key(key) = event {
+            if let Event::Key(key) = event {
                 match key.code {
                     KeyCode::Backspace => result.truncate(result.len().saturating_sub(1)),
                     KeyCode::Enter => break,

@@ -1,12 +1,10 @@
-pub use crate::flie_type::FileType;
-use crate::row::{self, SearchDirection};
-pub use crate::row::SingleRow;
-
+use crate::filetype::FileType;
+use crate::editor::FindDirection;
+use crate::row::SingleRow;
 use crate::Position;
+
 use std::fs::{self, File};
 use std::io::{Error,Write};
-
-
 // ------------------------
 // 文件结构体
 // ------------------------
@@ -183,7 +181,7 @@ impl Doc {
     // -----------------------------------------
     // 从Doc中查找字符串，可以在这里添加多行一起查找
     // -----------------------------------------
-    pub fn find(&self, query: &str, position: &Position, direction: SearchDirection) -> Option<Position>{
+    pub fn find(&self, query: &str, position: &Position, direction: FindDirection) -> Option<Position>{
         if position.y >= self.rows.len(){
             return None;
         }
@@ -192,7 +190,7 @@ impl Doc {
 
         // 起始行
         let mut begin_line;
-        if direction == SearchDirection::Forward{
+        if direction == FindDirection::Forward{
             begin_line = position.y;
         }else{
             begin_line = 0;
@@ -200,7 +198,7 @@ impl Doc {
 
         // 终止行
         let mut end_line;
-        if direction == SearchDirection::Backward{
+        if direction == FindDirection::Backward{
             end_line = self.rows.len();
         }else{
             end_line = position.y.saturating_add(1);
@@ -216,7 +214,7 @@ impl Doc {
                 }
 
                 // 更新查找位置
-                if direction == SearchDirection::Forward{
+                if direction == FindDirection::Forward{
                     position.y = position.y.saturating_add(1);
                     position.x = 0;
                 }else {

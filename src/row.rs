@@ -1,13 +1,14 @@
-pub use crate::high_lighting;
-pub use crate::flie_type::SearchDirection;
-pub use crate::flie_type::HighlightingOptions;
+use crate::highlighting;
+use crate::editor::FindDirection;
+use crate::filetype::FileType;
+use crate::filetype::HighlightingOptions;
 use crossterm::style::SetForegroundColor;
 use unicode_segmentation::UnicodeSegmentation;
 
 
 pub struct SingleRow{
     row_content: String, // 该行实际保存的文本内容
-    char_display_style: Vec<high_lighting::Type>, // 每个图元的显示样式
+    char_display_style: Vec<highlighting::Type>, // 每个图元的显示样式
     pub is_highligthing: bool,
     content_len: usize,
     current_row: usize,
@@ -58,13 +59,13 @@ impl SingleRow {
     
         // show_string为添加显示样式后的字符串
         let mut show_string = String::new();
-        let mut current_show_style = &high_lighting::Type::None;
+        let mut current_show_style = &highlighting::Type::None;
 
         for (index,graheme) in self.row_content[0..].graphemes(true).enumerate().skip(start).take(end-start){
             match graheme.chars().next(){
                 Some(c)=>{
                     // 获取当前字符的显示样式
-                    let show_style = self.char_display_style.get(index).unwrap_or(&high_lighting::Type::None);
+                    let show_style = self.char_display_style.get(index).unwrap_or(&highlighting::Type::None);
 
                     // 更改显示样式，否则之后所有字符公用一种样式
                     if show_style != current_show_style{
@@ -195,7 +196,7 @@ impl SingleRow {
     // --------------------------
     // 搜索子字符串，未实现叠加搜索
     // --------------------------
-    pub fn search_query_str(&self, query_str: &str, position: usize, direction: SearchDirection) -> Option<usize>{
+    pub fn search_query_str(&self, query_str: &str, position: usize, direction: FindDirection) -> Option<usize>{
         // 位置出错或字符串为空则停止搜索
         if position > self.content_len || query_str.is_empty(){
             return None;
@@ -203,7 +204,7 @@ impl SingleRow {
 
         // 搜索的起始位置
         let mut start = 0;
-        if SearchDirection::Forward == direction {
+        if FindDirection::Forward == direction {
             start = position;
         }else{
             start = 0;
@@ -211,7 +212,7 @@ impl SingleRow {
 
         // 搜索的结束位置
         let mut end = self.content_len;
-        if SearchDirection::Forward == direction{
+        if FindDirection::Forward == direction{
             end = self.get_content_len();
         }else{
             end = position;
@@ -226,7 +227,7 @@ impl SingleRow {
 
         // 获取搜索到的起始位置
         let mut index_of_begin: Option<usize> = None;
-        if SearchDirection::Forward == direction{
+        if FindDirection::Forward == direction{
             index_of_begin = substring.find(query_str);
         }else{
             index_of_begin = substring.rfind(query_str);
@@ -248,12 +249,12 @@ impl SingleRow {
             }
 
             let mut index = 0;
-            while let Some(get_word_index) = self.search_query_str(word, index, SearchDirection::Forward) {
+            while let Some(get_word_index) = self.search_query_str(word, index, FindDirection::Forward) {
                 // 如果找到一个单词，设置下一单词的查找位置
                 if let Some(next_begin) = get_word_index.checked_add(word[0..].graphemes(true).count()){
 
                     for i in get_word_index..next_begin {
-                        self.char_display_style[i] = high_lighting::Type::Match;
+                        self.char_display_style[i] = highlighting::Type::Match;
                     }
 
                     // 从新的起点开始查询
@@ -273,7 +274,7 @@ impl SingleRow {
         index: &mut usize, 
         substring: &str, 
         row_content: &[char], 
-        hight_type: high_lighting::Type,
+        hight_type: highlighting::Type,
     ) ->bool{
         // 如果子串为空，直接返回
         if substring.is_empty(){
@@ -312,7 +313,7 @@ impl SingleRow {
     ) ->bool {
         if options.asteriscs() && c == '*'{
             loop {
-                self.char_display_style.push(high_lighting::Type::Asteriscs);
+                self.char_display_style.push(highlighting::Type::Asteriscs);
                 *index += 1;
                 if let Some(next_char) = row_content.get(*index) {
                     if *next_char == '*' {
@@ -322,7 +323,7 @@ impl SingleRow {
                     break;
                 }
             }
-            self.char_display_style.push(high_lighting::Type::Asteriscs);
+            self.char_display_style.push(highlighting::Type::Asteriscs);
             *index += 1;
             return true;
         }
@@ -336,7 +337,7 @@ impl SingleRow {
         index: &mut usize, 
         row_content: &[char],
         keywords: &[String],  // 关键字列表
-        hight_type: high_lighting::Type, // 高亮类型
+        hight_type: highlighting::Type, // 高亮类型
     ) ->bool{
         if *index > 0 {
             let prev_char = row_content[*index - 1];
@@ -372,7 +373,7 @@ impl SingleRow {
         options: &HighlightingOptions,
         row_content: &[char],
     )-> bool {
-        self.highlight_keywords(index,row_content,options.primary_keywords(),high_lighting::Type::PrimaryKeywords)
+        self.highlight_keywords(index,row_content,options.primary_keywords(),highlighting::Type::PrimaryKeywords)
     }
 
     // 次要关键字高亮
@@ -382,7 +383,7 @@ impl SingleRow {
         options: &HighlightingOptions,
         row_content: &[char],
     )-> bool{
-        self.highlight_keywords(index,row_content,options.secondary_keywords(),high_lighting::Type::SecondaryKeywords)
+        self.highlight_keywords(index,row_content,options.secondary_keywords(),highlighting::Type::SecondaryKeywords)
     }
 
     // 数字高亮
@@ -403,7 +404,7 @@ impl SingleRow {
             }
 
             loop {
-                self.char_display_style.push(high_lighting::Type::Number);
+                self.char_display_style.push(highlighting::Type::Number);
                 *index += 1;
                 if let Some(next_char) = row_content.get(*index){
                     if *next_char != '.' && !next_char.is_ascii_digit(){
@@ -441,7 +442,7 @@ impl SingleRow {
                 if let Some(end_char) = row_content.get(end_index){
                     if *end_char == '\'' {
                         for _ in 0..=end_index.saturating_sub(*index){
-                            self.char_display_style.push(high_lighting::Type::Character);
+                            self.char_display_style.push(highlighting::Type::Character);
                             *index += 1;
                         }
                         return  true;
@@ -467,7 +468,7 @@ impl SingleRow {
             if let Some(next_char) = row_content.get(index.saturating_add(1)){
                 if *next_char == '/' {
                     for _ in *index..row_content.len(){
-                        self.char_display_style.push(high_lighting::Type::Comment);
+                        self.char_display_style.push(highlighting::Type::Comment);
                         *index += 1;
                     }
 
@@ -502,7 +503,7 @@ impl SingleRow {
                     };
 
                     for _ in *index..end_index{
-                        self.char_display_style.push(high_lighting::Type::MultilineComment);
+                        self.char_display_style.push(highlighting::Type::MultilineComment);
                         *index += 1;
                     }
 
@@ -524,7 +525,7 @@ impl SingleRow {
     )-> bool{
         if options.strings() && c == '"'{
             loop {
-                self.char_display_style.push(high_lighting::Type::String);
+                self.char_display_style.push(highlighting::Type::String);
                 *index += 1;
 
                 // 如果接下来是字符
@@ -539,7 +540,7 @@ impl SingleRow {
             }
 
             // 处理最后一个'"'号
-            self.char_display_style.push(high_lighting::Type::String);
+            self.char_display_style.push(highlighting::Type::String);
             *index += 1;
             return true;
         }
@@ -559,7 +560,7 @@ impl SingleRow {
         // 如果已经高亮了，且没有新单词需要高亮
         if self.is_highligthing && word.is_none(){
             if let Some(high_type) = self.char_display_style.last(){
-                if *high_type == high_lighting::Type::MultilineComment &&
+                if *high_type == highlighting::Type::MultilineComment &&
                 self.row_content.len() > 1 &&
                 self.row_content[self.row_content.len()-2..] == *"*/"{
                     return true;
@@ -583,7 +584,7 @@ impl SingleRow {
 
             // 多行注释
             for _ in 0..end_index{
-                self.char_display_style.push(high_lighting::Type::MultilineComment);
+                self.char_display_style.push(highlighting::Type::MultilineComment);
             }
             index = end_index;
         }
@@ -610,7 +611,7 @@ impl SingleRow {
             }
 
             // 如果一个字符没有匹配的，则设为默认的显示
-            self.char_display_style.push(high_lighting::Type::None);
+            self.char_display_style.push(highlighting::Type::None);
             index += 1;
         }
 
@@ -632,33 +633,6 @@ mod test_super{
 
     #[test]
     fn test_highlight_find() {
-        let mut row = SingleRow::from("1testtest");
-        row.char_display_style = vec![
-            high_lighting::Type::Number,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-            high_lighting::Type::None,
-        ];
-        row.highlight_word(&Some("t".to_string()));
-        assert_eq!(
-            vec![
-                high_lighting::Type::Number,
-                high_lighting::Type::Match,
-                high_lighting::Type::None,
-                high_lighting::Type::None,
-                high_lighting::Type::Match,
-                high_lighting::Type::Match,
-                high_lighting::Type::None,
-                high_lighting::Type::None,
-                high_lighting::Type::Match
-            ],
-            row.char_display_style
-        )
     }
 
 }

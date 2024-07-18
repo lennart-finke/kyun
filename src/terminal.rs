@@ -2,9 +2,10 @@ use std::io::{stdout, Write};
 use crossterm::{execute, style::{
     Color,
     Colors,
-}, terminal, event::{
-    Event,
-}, queue};
+}, terminal, queue};
+
+use crossterm::event::Event;
+
 use crate::handle_error;
 
 pub struct Terminal {

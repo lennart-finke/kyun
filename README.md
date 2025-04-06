@@ -22,7 +22,7 @@ Kyun is a ***low productivity***, ***low fidelity***, ***low customizablity*** t
 ![Screenshot](https://fi-le.net/images/screenshot10.png?raw=true)
 
 ### Sup*paw*ted Platforms
-Kyun is Cwoss-Platform, but tested for UNIX (specifically Arch) and Windows only. MacOS has also been confirmed as working. If you like, pwease try to extend the list!　(´▽｀)／
+Kyun is Cwoss-Platform, but tested for UNIX (specifically Arch) and Windows only. MacOS and Free/Net/OpenBSD have also been confirmed as working. If you like, pwease try to extend the list!　(´▽｀)／
 
 ## Installation
 ![Screenshot](https://fi-le.net/images/screenshot8.png?raw=true)
